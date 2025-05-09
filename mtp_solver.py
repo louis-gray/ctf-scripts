@@ -24,12 +24,16 @@ from __future__ import annotations
 import argparse
 
 
-# Drop suspected plaintext starts in here. One per line.
-CRIBS: list[bytes] = [
-    b"the ",
-    b"The ",
-    b"And ",
-]
+# Suspected plaintext fragments keyed by start offset. Most cribs sit at 0
+# (assumption: messages start with English text), but mid-message cribs
+# such as "the " or " and " are very useful once the early bytes are pinned.
+CRIBS: dict[int, list[bytes]] = {
+    0: [
+        b"the ",
+        b"The ",
+        b"And ",
+    ],
+}
 
 
 def parse(path: str) -> list[bytes]:
@@ -44,17 +48,18 @@ def parse(path: str) -> list[bytes]:
     return msgs
 
 
-def derive_key(msgs: list[bytes], cribs: list[bytes]) -> list[int | None]:
+def derive_key(msgs: list[bytes], cribs: dict[int, list[bytes]]) -> list[int | None]:
     maxlen = max(len(m) for m in msgs)
     key: list[int | None] = [None] * maxlen
-    for crib in cribs:
-        for m in msgs:
-            if len(m) < len(crib):
-                continue
-            for j, c in enumerate(crib):
-                kb = m[j] ^ c
-                if key[j] is None:
-                    key[j] = kb
+    for offset, fragments in cribs.items():
+        for crib in fragments:
+            for m in msgs:
+                if len(m) < offset + len(crib):
+                    continue
+                for j, c in enumerate(crib):
+                    kb = m[offset + j] ^ c
+                    if key[offset + j] is None:
+                        key[offset + j] = kb
     return key
 
 
