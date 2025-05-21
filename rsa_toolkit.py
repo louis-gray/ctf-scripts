@@ -5,12 +5,17 @@ Usage
 -----
     python rsa_toolkit.py common-modulus -n N -e1 E1 -c1 C1 -e2 E2 -c2 C2
     python rsa_toolkit.py small-e -n N -e E -c C
+    python rsa_toolkit.py wiener -n N -e E
 
 ``common-modulus`` recovers ``m`` when the same ``m`` is encrypted under the
 same ``n`` with two coprime exponents.
 
 ``small-e`` takes the integer ``e``-th root of ``c`` directly. Only useful
 when ``m**e < n`` (no padding, short message).
+
+``wiener`` recovers ``d`` (and the prime factorisation of ``n``) when ``d``
+is small relative to ``n`` — specifically ``d < n**0.25 / 3`` or so. Useful
+against challenges that pick a small ``d`` for "performance".
 
 All numbers may be passed as decimal or as ``0x``-prefixed hex.
 """
@@ -65,6 +70,51 @@ def common_modulus(n: int, e1: int, c1: int, e2: int, c2: int) -> int:
     return (pow(c1, s, n) * pow(c2, t, n)) % n
 
 
+def continued_fraction(num: int, den: int) -> list[int]:
+    out = []
+    while den:
+        q, r = divmod(num, den)
+        out.append(q)
+        num, den = den, r
+    return out
+
+
+def convergents(cf: list[int]) -> list[tuple[int, int]]:
+    h0, h1 = 0, 1
+    k0, k1 = 1, 0
+    out: list[tuple[int, int]] = []
+    for a in cf:
+        h2 = a * h1 + h0
+        k2 = a * k1 + k0
+        out.append((h2, k2))
+        h0, h1 = h1, h2
+        k0, k1 = k1, k2
+    return out
+
+
+def wiener(n: int, e: int) -> int:
+    """Return d when d is small enough for Wiener's attack to bite."""
+    cf = continued_fraction(e, n)
+    for k, d in convergents(cf):
+        if k == 0:
+            continue
+        phi_candidate, rem = divmod(e * d - 1, k)
+        if rem != 0:
+            continue
+        # phi = (p-1)(q-1) = n - p - q + 1 → p + q = n - phi + 1.
+        s = n - phi_candidate + 1
+        # Solve x^2 - s x + n = 0 for integer roots.
+        disc = s * s - 4 * n
+        if disc < 0:
+            continue
+        sq, exact = iroot(disc, 2)
+        if not exact:
+            continue
+        if (s + sq) % 2 == 0:
+            return d
+    raise ValueError("Wiener's attack failed; d may be too large")
+
+
 def small_e(n: int, e: int, c: int) -> int:
     root, exact = iroot(c, e)
     if not exact:
@@ -93,12 +143,20 @@ def main() -> None:
     se.add_argument("-e", type=parse_int, required=True)
     se.add_argument("-c", type=parse_int, required=True)
 
+    wn = sub.add_parser("wiener")
+    wn.add_argument("-n", type=parse_int, required=True)
+    wn.add_argument("-e", type=parse_int, required=True)
+
     args = ap.parse_args()
 
     if args.cmd == "common-modulus":
         m = common_modulus(args.n, args.e1, args.c1, args.e2, args.c2)
     elif args.cmd == "small-e":
         m = small_e(args.n, args.e, args.c)
+    elif args.cmd == "wiener":
+        d = wiener(args.n, args.e)
+        print(f"d = {d}")
+        return
     else:
         sys.exit(2)
 
