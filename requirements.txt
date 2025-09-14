@@ -1,4 +1,4 @@
-pwntools
-pycryptodome
-scapy
-pillow
+pwntools>=4.10
+pycryptodome>=3.18
+scapy>=2.5
+pillow>=10.0
