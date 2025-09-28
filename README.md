@@ -21,6 +21,11 @@ needs something close-but-not-quite.
   attacks, packaged as an importable function.
 - `vigenere_break.py` — index-of-coincidence key-length detection plus
   chi-squared key recovery.
+- `gif_frame_diff.py` — split a GIF into per-frame PNGs and report the
+  bounding box of pixels that changed. Handy for steg.
+- `pcap_usb_hid.py` — reconstruct keystrokes from a USB HID capture, with
+  UK and US layout maps.
+- `pcap_usb_mass_storage.py` — reassemble files from USB BOT pcap captures.
 
 ## Setup
 
