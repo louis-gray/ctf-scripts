@@ -5,11 +5,12 @@ inside it.
 
 Usage
 -----
-    python xor_known_plaintext.py <ciphertext-hex> <crib>
+    python xor_known_plaintext.py <ciphertext-hex> <crib> [--hex]
 
 `<ciphertext-hex>` is the ciphertext, hex-encoded.
-`<crib>` is the known plaintext fragment as an ASCII string
-(e.g. ``flag{`` or ``HTTP/1.1``).
+`<crib>` is the known plaintext fragment. By default it's interpreted as
+an ASCII string (e.g. ``flag{`` or ``HTTP/1.1``). Pass ``--hex`` if your crib
+contains arbitrary bytes (PNG header, gzip magic, etc.).
 
 The script slides the crib across every offset of the ciphertext, derives the
 key fragment at that position, repeats it cyclically, and ranks candidates
@@ -17,8 +18,8 @@ by how printable the recovered plaintext is.
 """
 from __future__ import annotations
 
+import argparse
 import string
-import sys
 
 PRINTABLE = set(string.printable.encode())
 
@@ -43,10 +44,15 @@ def recover(ct: bytes, crib: bytes, top: int = 5) -> list[tuple[int, bytes, byte
 
 
 def main() -> None:
-    if len(sys.argv) != 3:
-        sys.exit("Usage: python xor_known_plaintext.py <ciphertext-hex> <crib>")
-    ct = bytes.fromhex(sys.argv[1])
-    crib = sys.argv[2].encode()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("ciphertext")
+    ap.add_argument("crib")
+    ap.add_argument("--hex", action="store_true",
+                    help="interpret the crib as hex bytes rather than ASCII")
+    args = ap.parse_args()
+
+    ct = bytes.fromhex(args.ciphertext)
+    crib = bytes.fromhex(args.crib) if args.hex else args.crib.encode()
     for i, (off, key, pt) in enumerate(recover(ct, crib), 1):
         print(f"#{i} offset={off} key={key.hex()} score={score(pt)}")
         print(f"   pt={pt!r}")
