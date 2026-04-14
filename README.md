@@ -26,6 +26,10 @@ needs something close-but-not-quite.
 - `pcap_usb_hid.py` — reconstruct keystrokes from a USB HID capture, with
   UK and US layout maps.
 - `pcap_usb_mass_storage.py` — reassemble files from USB BOT pcap captures.
+- `pcap_serial_uart.py` — decode UART 8N1 frames out of a logic-analyser
+  capture file given the samples-per-bit ratio.
+- `cbc_byte_recovery.py` — chosen-IV byte-at-a-time secret recovery against
+  CBC encryption oracles that chain IV from the previous response.
 
 ## Setup
 
