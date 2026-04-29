@@ -44,17 +44,22 @@ def modinv(a: int, m: int) -> int:
 
 
 def iroot(c: int, e: int) -> tuple[int, bool]:
-    """Integer e-th root of c. Returns (root, exact)."""
+    """Integer e-th root of c (floor). Returns (root, exact) where ``root``
+    is the largest integer with ``root**e <= c`` and ``exact`` is True iff
+    ``root**e == c``."""
     if c < 2:
         return c, True
     lo, hi = 1, 1 << ((c.bit_length() + e - 1) // e + 1)
     while lo < hi:
         mid = (lo + hi) // 2
-        if mid ** e < c:
+        if mid ** e <= c:
             lo = mid + 1
         else:
             hi = mid
-    return lo, lo ** e == c
+    # After the loop, lo == hi is the smallest integer with lo**e > c.
+    # The floor is therefore lo - 1.
+    floor = lo - 1
+    return floor, floor ** e == c
 
 
 def common_modulus(n: int, e1: int, c1: int, e2: int, c2: int) -> int:
