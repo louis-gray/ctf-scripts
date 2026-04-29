@@ -22,10 +22,16 @@ import argparse
 import string
 
 PRINTABLE = set(string.printable.encode())
+# Letters + space are the strong signal: random XOR misalignments give plenty
+# of printable punctuation, but rarely a high count of natural-language letters.
+TEXTY = set((string.ascii_letters + " ").encode())
 
 
 def score(b: bytes) -> int:
-    return sum(1 for x in b if x in PRINTABLE)
+    """Composite score: lots of letters/spaces (strong) plus printable bonus."""
+    letters = sum(1 for x in b if x in TEXTY)
+    printable = sum(1 for x in b if x in PRINTABLE)
+    return letters * 4 + printable
 
 
 def recover(ct: bytes, crib: bytes, top: int = 5) -> list[tuple[int, bytes, bytes]]:
