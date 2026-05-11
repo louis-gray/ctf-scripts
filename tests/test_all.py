@@ -759,3 +759,35 @@ def test_lfi_log_poison_shape():
     assert "php_payload" in out
     assert "then_include" in out
     assert "/var/log/apache2/access.log" in out["then_include"]
+
+
+# ----------------------------------------------------------------------------
+# ecb_toolkit
+# ----------------------------------------------------------------------------
+
+def test_ecb_detect_repeats():
+    from ecb_toolkit import detect_ecb
+    # Five identical 16-byte blocks → 4 extras
+    ct = b"A" * 16 * 5
+    assert detect_ecb(ct, 16) == 4
+
+
+def test_ecb_detect_no_repeats():
+    from ecb_toolkit import detect_ecb
+    ct = os.urandom(16 * 8)
+    assert detect_ecb(ct, 16) == 0
+
+
+def test_ecb_byte_at_a_time_recovery():
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import pad
+    from ecb_toolkit import byte_at_a_time
+
+    key = os.urandom(16)
+    secret = b"FLAG{ecb_is_predictable}"
+
+    def oracle(prefix: bytes) -> bytes:
+        return AES.new(key, AES.MODE_ECB).encrypt(pad(prefix + secret, 16))
+
+    recovered = byte_at_a_time(oracle, block_size=16, max_len=len(secret))
+    assert recovered == secret, f"got {recovered!r}"
