@@ -656,3 +656,72 @@ def test_hash_identify_bcrypt():
 def test_hash_identify_unknown_returns_empty():
     from hash_identify import identify
     assert identify("not-a-hash") == []
+
+
+# ----------------------------------------------------------------------------
+# jwt_attack
+# ----------------------------------------------------------------------------
+
+def _make_hs256_token(header: dict, payload: dict, secret: bytes) -> str:
+    import json as _j, hmac as _h, hashlib as _hl, base64 as _b
+    def b64u(b): return _b.urlsafe_b64encode(b).rstrip(b"=").decode()
+    h = b64u(_j.dumps(header, separators=(",", ":")).encode())
+    p = b64u(_j.dumps(payload, separators=(",", ":")).encode())
+    sig = _h.new(secret, f"{h}.{p}".encode(), _hl.sha256).digest()
+    return f"{h}.{p}.{b64u(sig)}"
+
+
+def test_jwt_decode():
+    from jwt_attack import decode
+    token = _make_hs256_token(
+        {"alg": "HS256", "typ": "JWT"},
+        {"sub": "alice", "role": "user"},
+        b"shh",
+    )
+    h, p, _ = decode(token)
+    assert h["alg"] == "HS256"
+    assert p["role"] == "user"
+
+
+def test_jwt_tamper_and_resign():
+    import hmac as _h, hashlib as _hl, base64 as _b
+    from jwt_attack import decode, encode
+    secret = b"hunter2"
+    orig = _make_hs256_token({"alg": "HS256"}, {"role": "user"}, secret)
+    h, _, _ = decode(orig)
+    new = encode(h, {"role": "admin"}, secret=secret)
+    _, np, _ = decode(new)
+    assert np["role"] == "admin"
+    head_b64, pl_b64, sig_b64 = new.split(".")
+    expected_sig = _h.new(secret, f"{head_b64}.{pl_b64}".encode(), _hl.sha256).digest()
+    actual_sig = _b.urlsafe_b64decode(sig_b64 + "=" * ((-len(sig_b64)) % 4))
+    assert _h.compare_digest(expected_sig, actual_sig)
+
+
+def test_jwt_brute_hs256():
+    from jwt_attack import brute_hs256
+    secret = b"hunter2"
+    token = _make_hs256_token({"alg": "HS256"}, {"x": 1}, secret)
+    found = brute_hs256(token, ["password", "12345", "hunter2", "qwerty"])
+    assert found == "hunter2"
+
+
+def test_jwt_alg_none():
+    from jwt_attack import alg_none, decode
+    token = _make_hs256_token({"alg": "HS256"}, {"role": "user"}, b"any")
+    out = alg_none(token)
+    h, p, sig = decode(out)
+    assert h["alg"].lower() == "none"
+    assert sig == b""
+    assert p["role"] == "user"
+
+
+def test_jwt_kid_payloads():
+    from jwt_attack import kid_payloads, decode
+    token = _make_hs256_token({"alg": "HS256"}, {"role": "user"}, b"any")
+    variants = kid_payloads(token, "/etc/passwd")
+    # Each variant should be a valid 3-segment JWT
+    assert all(v.count(".") == 2 for v in variants)
+    # At least one variant should contain the literal injection
+    headers = [decode(v)[0] for v in variants]
+    assert any("/etc/passwd" in str(h.get("kid", "")) for h in headers)
