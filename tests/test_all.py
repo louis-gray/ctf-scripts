@@ -814,3 +814,25 @@ def test_ecb_byte_at_a_time_recovery():
 
     recovered = byte_at_a_time(oracle, block_size=16, max_len=len(secret))
     assert recovered == secret, f"got {recovered!r}"
+
+
+# ----------------------------------------------------------------------------
+# format_string
+# ----------------------------------------------------------------------------
+
+def test_format_string_leak_layout():
+    import struct as _s
+    from format_string import make_leak
+    payload = make_leak(offset=6, target_addr=0x404020, arch=64)
+    addr_bytes = _s.pack("<Q", 0x404020)
+    assert addr_bytes in payload, f"address not in payload: {payload!r}"
+    assert b"$s" in payload
+
+
+def test_format_string_write_layout():
+    import struct as _s
+    from format_string import make_write
+    payload = make_write(offset=8, target_addr=0x404020, value=0xDEADBEEF, arch=64)
+    addr_bytes = _s.pack("<Q", 0x404020)
+    assert addr_bytes in payload, f"address not in payload: {payload!r}"
+    assert b"$n" in payload or b"$hn" in payload or b"$hhn" in payload
