@@ -6,6 +6,7 @@ Usage
     python rsa_toolkit.py common-modulus -n N -e1 E1 -c1 C1 -e2 E2 -c2 C2
     python rsa_toolkit.py small-e -n N -e E -c C
     python rsa_toolkit.py wiener -n N -e E
+    python rsa_toolkit.py hastad -e E -p N1 C1 -p N2 C2 -p N3 C3 [-p ...]
 
 ``common-modulus`` recovers ``m`` when the same ``m`` is encrypted under the
 same ``n`` with two coprime exponents.
@@ -16,6 +17,10 @@ when ``m**e < n`` (no padding, short message).
 ``wiener`` recovers ``d`` (and the prime factorisation of ``n``) when ``d``
 is small relative to ``n`` — specifically ``d < n**0.25 / 3`` or so. Useful
 against challenges that pick a small ``d`` for "performance".
+
+``hastad`` recovers ``m`` when the same ``m`` is encrypted under the same
+small exponent ``e`` to ``e`` (or more) distinct coprime moduli. Requires
+``m**e < prod(n_i)``.
 
 All numbers may be passed as decimal or as ``0x``-prefixed hex.
 """
@@ -120,6 +125,34 @@ def wiener(n: int, e: int) -> int:
     raise ValueError("Wiener's attack failed; d may be too large")
 
 
+def hastad_broadcast(pairs: list[tuple[int, int]], e: int) -> int:
+    """Recover ``m`` from ``e`` (or more) ciphertexts of the same ``m`` under
+    the same exponent ``e`` and distinct coprime moduli.
+
+    ``pairs`` is a list of ``(n_i, c_i)``. Combines via CRT to get
+    ``C = m**e mod prod(n_i)``; since ``m**e < prod(n_i)`` by assumption,
+    the integer ``e``-th root of ``C`` equals ``m``. Raises ``ValueError``
+    if the moduli aren't pairwise coprime or the root isn't exact."""
+    if len(pairs) < e:
+        raise ValueError(f"Håstad requires at least e={e} pairs, got {len(pairs)}")
+    N, C = pairs[0]
+    for n_i, c_i in pairs[1:]:
+        g, _, _ = egcd(N, n_i)
+        if g != 1:
+            raise ValueError("moduli must be pairwise coprime")
+        # CRT step: find X such that X ≡ C (mod N) and X ≡ c_i (mod n_i).
+        # X = C + N * ((c_i - C) * modinv(N, n_i) mod n_i)
+        diff = (c_i - C) % n_i
+        inv = modinv(N % n_i, n_i)
+        X = C + N * ((diff * inv) % n_i)
+        N = N * n_i
+        C = X % N
+    root, exact = iroot(C, e)
+    if not exact:
+        raise ValueError("Håstad failed: CRT-combined value is not a perfect e-th power")
+    return root
+
+
 def small_e(n: int, e: int, c: int) -> int:
     root, exact = iroot(c, e)
     if not exact:
@@ -152,6 +185,11 @@ def main() -> None:
     wn.add_argument("-n", type=parse_int, required=True)
     wn.add_argument("-e", type=parse_int, required=True)
 
+    hd = sub.add_parser("hastad")
+    hd.add_argument("-e", type=parse_int, required=True)
+    hd.add_argument("-p", "--pair", nargs=2, action="append", required=True,
+                    metavar=("N", "C"), help="modulus + ciphertext pair (repeat for each)")
+
     args = ap.parse_args()
 
     if args.cmd == "common-modulus":
@@ -162,6 +200,9 @@ def main() -> None:
         d = wiener(args.n, args.e)
         print(f"d = {d}")
         return
+    elif args.cmd == "hastad":
+        pairs = [(parse_int(n), parse_int(c)) for n, c in args.pair]
+        m = hastad_broadcast(pairs, args.e)
     else:
         sys.exit(2)
 

@@ -158,6 +158,29 @@ def test_rsa_common_modulus():
     assert common_modulus(n, e1, c1, e2, c2) == m
 
 
+def test_rsa_hastad_broadcast():
+    from rsa_toolkit import hastad_broadcast
+    from Crypto.Util.number import getPrime
+
+    e = 3
+    m = 0xC0FFEEDEADBEEF12345678  # ~88 bits; m**3 ~ 264 bits
+    pairs = []
+    used_primes: set[int] = set()
+    for _ in range(e):
+        while True:
+            p = getPrime(96)
+            q = getPrime(96)
+            if p not in used_primes and q not in used_primes and p != q:
+                used_primes.add(p)
+                used_primes.add(q)
+                break
+        n = p * q  # ~192 bits each; prod(n) ~ 576 bits > m**3
+        c = pow(m, e, n)
+        pairs.append((n, c))
+    recovered = hastad_broadcast(pairs, e)
+    assert recovered == m
+
+
 def test_rsa_wiener():
     from rsa_toolkit import wiener
     p, q = _toy_primes()
