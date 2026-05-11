@@ -725,3 +725,37 @@ def test_jwt_kid_payloads():
     # At least one variant should contain the literal injection
     headers = [decode(v)[0] for v in variants]
     assert any("/etc/passwd" in str(h.get("kid", "")) for h in headers)
+
+
+# ----------------------------------------------------------------------------
+# lfi_payloads
+# ----------------------------------------------------------------------------
+
+def test_lfi_traversal_depths():
+    from lfi_payloads import traversal
+    out = traversal("/etc/passwd", max_depth=5)
+    assert len(out) == 5
+    assert out[0] == "../etc/passwd"
+    assert out[4] == "../../../../../etc/passwd"
+
+
+def test_lfi_php_filter_includes_base64():
+    from lfi_payloads import php_filter
+    out = php_filter("config.php")
+    assert any("php://filter" in p and "convert.base64-encode" in p and "config.php" in p for p in out)
+
+
+def test_lfi_proc_cribs():
+    from lfi_payloads import proc_cribs
+    out = proc_cribs()
+    assert any("/proc/self/environ" in p for p in out)
+    assert any("/proc/self/cmdline" in p for p in out)
+
+
+def test_lfi_log_poison_shape():
+    from lfi_payloads import log_poison_payload
+    out = log_poison_payload("/var/log/apache2/access.log")
+    assert "header_to_inject" in out
+    assert "php_payload" in out
+    assert "then_include" in out
+    assert "/var/log/apache2/access.log" in out["then_include"]
