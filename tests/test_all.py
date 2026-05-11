@@ -556,3 +556,48 @@ def test_cbc_padding_oracle_demo_subprocess():
     assert result.returncode == 0, result.stderr
     # _demo prints the recovered (padded) plaintext, which contains the message
     assert b"squeamish ossifrage at dawn" in result.stdout.encode()
+
+
+# ----------------------------------------------------------------------------
+# multi_base_decode
+# ----------------------------------------------------------------------------
+
+def test_multi_base_decode_b64_single_layer():
+    import base64 as _b
+    from multi_base_decode import unwrap
+
+    plain = b"the flag is squeamish ossifrage at dawn"
+    blob = _b.b64encode(plain)
+    chains = unwrap(blob)
+    assert any(leaf == plain for _, leaf in chains), f"plain not in chains: {chains[:5]}"
+    assert any("base64" in chain for chain, _ in chains)
+
+
+def test_multi_base_decode_nested_b64_then_b32():
+    import base64 as _b
+    from multi_base_decode import unwrap
+
+    plain = b"hello world this is a longer message for chi squared scoring"
+    inner = _b.b32encode(plain)
+    outer = _b.b64encode(inner)
+    chains = unwrap(outer, max_layers=4)
+    assert any(leaf == plain for _, leaf in chains), f"plain not in chains: {chains[:5]}"
+
+
+def test_multi_base_decode_b58():
+    from multi_base_decode import unwrap
+
+    ALPH = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+    payload = b"flag{base58}"
+    n = int.from_bytes(payload, "big")
+    enc = b""
+    while n:
+        n, r = divmod(n, 58)
+        enc = ALPH[r:r + 1] + enc
+    for byte in payload:
+        if byte == 0:
+            enc = b"1" + enc
+        else:
+            break
+    chains = unwrap(enc)
+    assert any(leaf == payload for _, leaf in chains), f"payload not in chains: {chains[:5]}"
