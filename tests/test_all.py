@@ -601,3 +601,26 @@ def test_multi_base_decode_b58():
             break
     chains = unwrap(enc)
     assert any(leaf == payload for _, leaf in chains), f"payload not in chains: {chains[:5]}"
+
+
+# ----------------------------------------------------------------------------
+# rot_brute
+# ----------------------------------------------------------------------------
+
+def test_rot_brute_finds_caesar_13():
+    from rot_brute import rot, brute
+
+    pt = "the quick brown fox jumps over the lazy dog and runs away fast"
+    ct = rot(pt, 13)
+    results = brute(ct, top=3)
+    assert results[0][0] == pt
+    assert results[0][1] == "rot-13"
+
+
+def test_rot_brute_finds_atbash():
+    from rot_brute import atbash, brute
+
+    pt = "hello world this is a long enough english sentence to score well"
+    ct = atbash(pt)
+    results = brute(ct, top=5)
+    assert any(r[0] == pt and r[1] == "atbash" for r in results)
