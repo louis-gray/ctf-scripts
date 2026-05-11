@@ -624,3 +624,35 @@ def test_rot_brute_finds_atbash():
     ct = atbash(pt)
     results = brute(ct, top=5)
     assert any(r[0] == pt and r[1] == "atbash" for r in results)
+
+
+# ----------------------------------------------------------------------------
+# hash_identify
+# ----------------------------------------------------------------------------
+
+def test_hash_identify_md5():
+    from hash_identify import identify
+    out = identify("5d41402abc4b2a76b9719d911017c592")  # md5("hello")
+    names = [o["name"] for o in out]
+    assert "MD5" in names
+    md5 = next(o for o in out if o["name"] == "MD5")
+    assert md5["hashcat_mode"] == 0
+    assert md5["john_mode"] == "raw-md5"
+
+
+def test_hash_identify_sha256():
+    from hash_identify import identify
+    h = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    names = [o["name"] for o in identify(h)]
+    assert "SHA-256" in names
+
+
+def test_hash_identify_bcrypt():
+    from hash_identify import identify
+    h = "$2b$12$Wq3FbjuTzPjP1RG.QBkPS.fzKf.WC8.bMtsLngBmZ7zVwlnzaABcW"
+    assert any(o["name"] == "bcrypt" for o in identify(h))
+
+
+def test_hash_identify_unknown_returns_empty():
+    from hash_identify import identify
+    assert identify("not-a-hash") == []
