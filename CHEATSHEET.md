@@ -1,7 +1,5 @@
 # CHEATSHEET
 
-Open this first. Decision tree → tools → commands.
-
 ---
 
 ## Decision tree by symptom
@@ -35,9 +33,8 @@ Open this first. Decision tree → tools → commands.
 
 ## Flag formats
 
-- UKCT 2026: **confirm at check-in.** Best guess `flag{...}` or `UKCT{...}` based on prior years.
-- Common: `flag{...}`, `FLAG{...}`, `CTF{...}`, `picoCTF{...}`, `HTB{...}`.
-- Grep template once known: `grep -aEo '<prefix>\{[^}]+\}'`.
+- UKCT: `flag{...}` (online round). Other common: `FLAG{...}`, `CTF{...}`, `picoCTF{...}`, `HTB{...}`.
+- Grep: `grep -aEo 'flag\{[^}]+\}'`
 
 ---
 

@@ -126,13 +126,9 @@ def wiener(n: int, e: int) -> int:
 
 
 def hastad_broadcast(pairs: list[tuple[int, int]], e: int) -> int:
-    """Recover ``m`` from ``e`` (or more) ciphertexts of the same ``m`` under
-    the same exponent ``e`` and distinct coprime moduli.
-
-    ``pairs`` is a list of ``(n_i, c_i)``. Combines via CRT to get
-    ``C = m**e mod prod(n_i)``; since ``m**e < prod(n_i)`` by assumption,
-    the integer ``e``-th root of ``C`` equals ``m``. Raises ``ValueError``
-    if the moduli aren't pairwise coprime or the root isn't exact."""
+    """Håstad broadcast. ``pairs`` is ``[(n_i, c_i), ...]`` of the same ``m``
+    encrypted under exponent ``e`` to distinct coprime moduli. Needs
+    ``m**e < prod(n_i)`` for the integer root to be exact."""
     if len(pairs) < e:
         raise ValueError(f"Håstad requires at least e={e} pairs, got {len(pairs)}")
     N, C = pairs[0]

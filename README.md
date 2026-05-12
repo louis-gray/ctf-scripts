@@ -5,8 +5,8 @@ in CTFs. Each script tries to do one thing, document its inputs at the top,
 and stay readable enough to fork into a one-off solver when a challenge
 needs something close-but-not-quite.
 
-See [`CHEATSHEET.md`](./CHEATSHEET.md) for the symptom-to-tool decision tree,
-magic-byte table, encoding tells, and command cribs. Open this first on the day.
+See [`CHEATSHEET.md`](./CHEATSHEET.md) for symptom→tool decision tree, magic
+bytes, encoding tells, and command cribs.
 
 ## Scripts
 
@@ -50,15 +50,14 @@ magic-byte table, encoding tells, and command cribs. Open this first on the day.
   capture file given the samples-per-bit ratio.
 
 ### Web
-- `jwt_attack.py` — decode, tamper-and-resign, HS256 wordlist brute,
-  alg:none downgrade, and kid header injection payloads. Stdlib only,
-  no PyJWT.
-- `lfi_payloads.py` — path traversal payload generator, PHP filter chains,
-  `/proc` cribs, and log-poisoning recipes.
+- `jwt_attack.py` — decode, tamper-resign, HS256 wordlist brute, alg:none,
+  and kid injection payloads.
+- `lfi_payloads.py` — path traversal payloads, PHP filter chains, `/proc`
+  cribs, log-poisoning recipes.
 
 ### Pwn
-- `format_string.py` — pwntools-backed format-string primitive builders for
-  arbitrary read (leak) and arbitrary write (`%hhn` chains).
+- `format_string.py` — format-string primitive builders for arbitrary read
+  (leak) and arbitrary write (`%hhn` chains). Wraps pwnlib's `fmtstr_payload`.
 
 ## Setup
 

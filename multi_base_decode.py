@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
-"""multi_base_decode.py — auto-detect and brute-decode common bases with
-nested-layer DFS.
+"""multi_base_decode.py — brute base16/32/58/62/64/85 against the input,
+recursing on results that look like more encoding. Ranks by chi-squared
+distance from English letter frequencies.
 
 Usage
 -----
     python multi_base_decode.py <input-file-or->     # `-` for stdin
-
-Tries base16, base32, base58 (Bitcoin alphabet), base62, base64, base85 at
-each layer, recursing on outputs that look text-like (>=90% printable ASCII).
-Prints top candidates ranked by chi-squared distance from English letter
-frequencies.
 """
 from __future__ import annotations
 
@@ -33,8 +29,7 @@ PRINTABLE_BYTES = set(string.printable.encode())
 
 
 def score_english(text: str) -> float:
-    """Lower is better. Chi-squared distance from English letter frequencies
-    on the letters-only lowercase projection of ``text``."""
+    """Chi-squared distance from English letter frequencies; lower is better."""
     lower = "".join(c for c in text.lower() if c.isalpha())
     if not lower:
         return float("inf")
@@ -152,8 +147,8 @@ BASES = [
 
 
 def unwrap(blob: bytes, max_layers: int = 4) -> list[tuple[list[str], bytes]]:
-    """DFS through nested encodings. Returns all leaf decodings as
-    ``(chain, plaintext)`` pairs, sorted by best chi-squared English score."""
+    """DFS through nested encodings. Returns ``(chain, plaintext)`` pairs
+    sorted by chi-squared English score."""
     results: list[tuple[list[str], bytes]] = []
     seen: set[bytes] = set()
 

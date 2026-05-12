@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-"""hash_identify.py — fingerprint a hash by length and charset, return likely
-algorithms with their john ``--format`` and hashcat ``-m`` mode IDs.
+"""hash_identify.py — fingerprint a hash by length and charset; return all
+matching algorithms with their john ``--format`` and hashcat ``-m`` IDs.
 
 Usage
 -----
     python hash_identify.py <hash>
-    python hash_identify.py -                 # read hash from stdin
-
-The same length can match multiple algorithms (e.g. 32 hex → MD5, NTLM, LM).
-All candidates are returned; pick by context.
+    python hash_identify.py -        # read hash from stdin
 """
 from __future__ import annotations
 
@@ -44,7 +41,7 @@ RULES: list[tuple[str, str, str, int, str]] = [
 
 
 def identify(h: str) -> list[dict]:
-    """Return candidate algorithms for ``h``. Empty list if no match."""
+    """Candidate algorithms for ``h``. Empty if nothing matches."""
     h = h.strip()
     if not h:
         return []
